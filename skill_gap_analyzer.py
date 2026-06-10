@@ -4,17 +4,21 @@ Author: Ariana Cursino
 
 This script:
 1. Fetches real-time Python jobs from SerpApi (Google Jobs API).
-2. Fetches past/current Pyladies events (using Meetup, Linkedin, or local fallback).
-3. Analyzes and maps the "Skill Gap"using a curated skill taxonomy.
+2. Fetches past/current PyLadies events using Meetup RSS or local fallback.
+3. Analyzes and maps the "Skill Gap" using a curated skill taxonomy.
 4. Generates a clean .csv, a visual gap chart, and a actionable Markdown report.
 """
 
-import json
+import argparse
 import os
 import re
 import urllib.request
 import xml.etree.ElementTree as ET
 from collections import Counter
+from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
+from typing import Optional
+from urllib.parse import urlparse
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -24,6 +28,11 @@ try:
     from serpapi import GoogleSearch
 except ImportError:
     GoogleSearch = None
+
+try:
+    from playwright.sync_api import sync_playwright
+except Exception:
+    sync_playwright = None
 
 # ------------------ 1.Configuration and Skill Taxonomy ------------------
 # A curated skill taxonomy based on common Python job requirements and Pyladies event topics
@@ -92,16 +101,66 @@ SKILL_TAXONOMY = {
 ALL_SKILLS = [skill for sublist in SKILL_TAXONOMY.values() for skill in sublist]
 
 # ------------------ 1.b Default Chapter Configuration ------------------
-CITIES_CONFIG = {"São Paulo": "pyladies-sao-paulo", "Rio de Janeiro": "pyladies-rio"}
+CITIES_CONFIG = {"Boston": "pyladies-boston", "Houston": "houston_pyladies", "Seoul": "seoul-pyladies-meetup"}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Analyze the skill gap between local PyLadies chapters and Python job market demand."
+    )
+    parser.add_argument(
+        "--api-key",
+        dest="api_key",
+        help="SerpApi API key. Falls back to SERPAPI_API_KEY environment variable if not provided.",
+    )
+    parser.add_argument(
+        "--history-months",
+        dest="history_months",
+        type=int,
+        default=0,
+        help="Filter jobs and events to only the last N months. Use 12 for the last year.",
+    )
+    parser.add_argument(
+        "--dump-chapters",
+        dest="dump_chapters",
+        action="store_true",
+        help="Fetch the Pyladies Meetup topic page and print discovered chapter slugs.",
+    )
+    return parser.parse_args()
+
+
+def parse_date_string(date_string: str) -> Optional[datetime]:
+    if not date_string:
+        return None
+    try:
+        return parsedate_to_datetime(date_string)
+    except Exception:
+        pass
+
+    try:
+        if date_string.endswith("Z"):
+            date_string = date_string[:-1] + "+00:00"
+        return datetime.fromisoformat(date_string)
+    except Exception:
+        return None
+
+
+def make_cutoff(history_months: int) -> Optional[datetime]:
+    if history_months <= 0:
+        return None
+    return datetime.utcnow() - timedelta(days=history_months * 30)
+
 
 # ------------------ 2. Data Acquisition ------------------
 
 
-def fetch_jobs_from_serpapi(city: str, api_key: str) -> list:
+def fetch_jobs_from_serpapi(city: str, api_key: str, history_months: int = 0) -> list:
     """Fetches Python job listings from SerpApi (Google Jobs API) for a given city."""
     if not api_key:
         print(f"[-] No SerpApi API key provided. Skipping job data fetch for {city} (Demo Mode).")
         return get_mock_jobs(city)
+
+    cutoff = make_cutoff(history_months)
 
     print(f"[+] Fetching Python jobs for {city} from SerpApi...")
     try:
@@ -120,82 +179,150 @@ def fetch_jobs_from_serpapi(city: str, api_key: str) -> list:
             results = client.search(params).as_dict()
 
         jobs = results.get("jobs_results", [])
-        descriptions = [job.get("description", "") for job in jobs if job.get("description")]
-        print(f"[+] Extracted descriptions from {len(descriptions)} job postings.")
+        filtered_jobs = []
+        for job in jobs:
+            if cutoff is None:
+                filtered_jobs.append(job)
+                continue
+
+            job_date = None
+            for key in [
+                "date",
+                "posted_at",
+                "posted_date",
+                "created_at",
+                "published_at",
+                "publication_date",
+            ]:
+                if key in job and job[key]:
+                    job_date = parse_date_string(str(job[key]))
+                    if job_date:
+                        break
+
+            if job_date is None:
+                filtered_jobs.append(job)
+            elif job_date >= cutoff:
+                filtered_jobs.append(job)
+
+        descriptions = [job.get("description", "") for job in filtered_jobs if job.get("description")]
+        print(
+            f"[+] Extracted descriptions from {len(descriptions)} job postings "
+            f"(filtered to last {history_months} months)."
+            if cutoff
+            else f"[+] Extracted descriptions from {len(descriptions)} job postings."
+        )
         return descriptions
     except Exception as e:
         print(f"[-] SerpApi fetch failed: {e}. Falling back to mock data.")
         return get_mock_jobs(city)
 
 
-def fetch_pyladies_events(group_slug: str, source: str = "rss") -> list:
+def fetch_pyladies_events(group_slug: str, history_months: int = 0) -> list:
     """
-    Fetch PyLadies events from a chosen source. source: "rss" (Meetup RSS, default) or "linkedin".
+    Fetch PyLadies events from the Meetup RSS feed for the chapter.
     """
-    if source not in ("rss", "linkedin"):
-        print(f"[!] Unknown source '{source}'. Falling back to RSS.")
-        source = "rss"
+    cutoff = make_cutoff(history_months)
+    print(f"[+] Fetching public RSS feed for PyLadies group: {group_slug}...")
+    rss_url = f"https://www.meetup.com/{group_slug}/events/rss/"
 
-    if source == "rss":
-        print(f"[+] Fetching public RSS feed for PyLadies group: {group_slug}...")
-        rss_url = f"https://www.meetup.com/{group_slug}/events/rss/"
-
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        req = urllib.request.Request(rss_url, headers=headers)
-
-        try:
-            with urllib.request.urlopen(req, timeout=10) as response:
-                xml_data = response.read()
-
-            root = ET.fromstring(xml_data)
-            events = []
-            for item in root.findall(".//item"):
-                title = item.find("title").text or ""
-                desc = item.find("description").text or ""
-                events.append(f"{title} {desc}")
-
-            print(f"[+] Successfully parsed {len(events)} events from RSS.")
-            return events
-        except Exception as e:
-            print(f"[-] Meetup RSS feed unavailable ({e}). Using mock curriculum data.")
-            return get_mock_curriculum(group_slug)
-
-    elif source == "linkedin":
-        return fetch_pyladies_events_linkedin(group_slug)
-
-
-def fetch_pyladies_events_linkedin(group_slug: str) -> list:
-    """
-    Fetch PyLadies events from LinkedIn (requires access token and org ID). Falls back
-    to mock data if credentials are missing or request fails.
-    """
-    token = os.environ.get("LINKEDIN_ACCESS_TOKEN")
-    org_id = os.environ.get("LINKEDIN_ORG_ID")  # e.g., "123456"
-
-    if not token or not org_id:
-        print("[!] LinkedIn credentials not found. Falling back to mock data.")
-        return get_mock_curriculum(group_slug)
-
-    # NOTE: The exact LinkedIn API endpoint may differ depending on your app permissions
-    url = f"https://api.linkedin.com/v2/events?q=owner&owners=urn:li:organization:{org_id}"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    req = urllib.request.Request(rss_url, headers=headers)
 
     try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode())
+        with urllib.request.urlopen(req, timeout=10) as response:
+            xml_data = response.read()
 
+        root = ET.fromstring(xml_data)
         events = []
-        for item in data.get("elements", []):
-            title = item.get("name", "")
-            start = item.get("startDate", "")
-            location = item.get("location", "")
-            events.append(f"{title} - {start} {location}".strip())
-        print(f"[+] Retrieved {len(events)} LinkedIn events.")
+        for item in root.findall(".//item"):
+            title = item.find("title").text or ""
+            desc = item.find("description").text or ""
+            pub_date_elem = item.find("pubDate")
+            pub_date = (
+                parse_date_string(pub_date_elem.text.strip())
+                if pub_date_elem is not None and pub_date_elem.text
+                else None
+            )
+
+            if cutoff is not None and pub_date is not None and pub_date < cutoff:
+                continue
+
+            events.append(f"{title} {desc}")
+
+        print(
+            f"[+] Successfully parsed {len(events)} events from RSS " f"(filtered to last {history_months} months)."
+            if cutoff
+            else f"[+] Successfully parsed {len(events)} events from RSS."
+        )
         return events
     except Exception as e:
-        print(f"[-] LinkedIn fetch failed: {e}. Using mock data.")
+        print(f"[-] Meetup RSS feed unavailable ({e}). Using mock curriculum data.")
         return get_mock_curriculum(group_slug)
+
+
+def fetch_pyladies_chapters(topic_url: str = "https://www.meetup.com/pt-BR/topics/pyladies/all/") -> list:
+    """Fetch meetup chapter slugs from the Pyladies topic listing page."""
+    print(f"[+] Fetching chapter list from {topic_url}")
+    try:
+        with urllib.request.urlopen(topic_url, timeout=15) as response:
+            page_html = response.read().decode("utf-8", errors="ignore")
+    except Exception as e:
+        print(f"[-] Failed to fetch Meetup topic page: {e}")
+        return []
+
+    slugs = set()
+    for href in re.findall(r'href=["\']([^"\']+)["\']', page_html):
+        parsed = urlparse(href)
+        path = parsed.path.strip("/")
+        if not path:
+            continue
+        if path.startswith("pt-BR/"):
+            path = path.split("/", 1)[1]
+        if "/" in path:
+            path = path.split("/", 1)[0]
+        if not path or "topics" in path or "events" in path or "groups" in path:
+            continue
+        if "pyladies" not in path.lower():
+            continue
+        if re.match(r"^[a-zA-Z0-9_-]+$", path):
+            slugs.add(path)
+
+    # If static HTML parsing found no slugs, try rendering the page with Playwright
+    if not slugs and sync_playwright is not None:
+        print("[+] No slugs found in static HTML — trying Playwright render fallback...")
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto(topic_url, timeout=30000)
+                try:
+                    page.wait_for_load_state("networkidle", timeout=20000)
+                except Exception:
+                    pass
+                rendered = page.content()
+                browser.close()
+
+            for href in re.findall(r'href=["\']([^"\']+)["\']', rendered):
+                parsed = urlparse(href)
+                path = parsed.path.strip("/")
+                if not path:
+                    continue
+                if path.startswith("pt-BR/"):
+                    path = path.split("/", 1)[1]
+                if "/" in path:
+                    path = path.split("/", 1)[0]
+                if not path or "topics" in path or "events" in path or "groups" in path:
+                    continue
+                if "pyladies" not in path.lower():
+                    continue
+                if re.match(r"^[a-zA-Z0-9_-]+$", path):
+                    slugs.add(path)
+        except Exception as e:
+            print(f"[-] Playwright render fallback failed: {e}")
+            print("To enable this fallback, install Playwright: ")
+            print("`pip install playwright` and run `playwright install`.")
+
+    return sorted(slugs)
 
 
 # ------------------ 3. MOCK DATA (For Demo Mode/Fallbacks) ------------------
@@ -391,9 +518,29 @@ def write_markdown_report(df: pd.DataFrame, city: str, output_dir: str):
 # ------------------ 6. ORCHESTRATION PIPELINE ------------------
 
 
-def main():
-    # Grab SerpApi key from environment variables
-    api_key = os.environ.get("SERPAPI_API_KEY")
+def main(api_key=None, history_months=0, dump_chapters=False):
+    if dump_chapters:
+        slugs = fetch_pyladies_chapters()
+        if not slugs:
+            print("[-] No chapter slugs discovered.")
+            return
+
+        print("[+] Discovered Pyladies chapter slugs:")
+        for slug in slugs:
+            print(f"- {slug}")
+
+        print("\nCopy these slugs into CITIES_CONFIG or use them to build a chapter mapping.")
+        return
+
+    # Prefer CLI-provided API key, then environment variable.
+    api_key = api_key or os.environ.get("SERPAPI_API_KEY")
+    if api_key:
+        print("[+] Using SerpApi API key from command-line or environment.")
+    else:
+        print(
+            "[-] No SerpApi API key provided. Skipping job data fetch "
+            "and using demo mode. Set SERPAPI_API_KEY or use --api-key."
+        )
 
     output_dir = "outputs"
     os.makedirs(output_dir, exist_ok=True)
@@ -406,8 +553,8 @@ def main():
         print(f"\n>>> Processing {city} chapter...")
 
         # 1. Fetch data
-        job_descriptions = fetch_jobs_from_serpapi(city, api_key)
-        meetup_events = fetch_pyladies_events(group_slug)
+        job_descriptions = fetch_jobs_from_serpapi(city, api_key, history_months)
+        meetup_events = fetch_pyladies_events(group_slug, history_months)
 
         # 2. Run analysis
         gap_df = calculate_gap_analysis(city, job_descriptions, meetup_events)
@@ -429,4 +576,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(api_key=args.api_key, history_months=args.history_months, dump_chapters=args.dump_chapters)
