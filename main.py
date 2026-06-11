@@ -9,6 +9,7 @@ This script:
 4. Generates a clean .csv, a visual gap chart, and a actionable Markdown report.
 """
 
+import argparse
 import os
 
 from src.analyzer import align_instagram_events_with_market, calculate_gap_analysis
@@ -18,7 +19,6 @@ from src.data_fetcher import (
     fetch_jobs_from_serpapi,
     fetch_pyladies_chapters,
     fetch_pyladies_events,
-    parse_args,
 )
 from src.reporter import generate_visualizations, write_markdown_report
 
@@ -105,6 +105,20 @@ def main(api_key=None, history_months=0, dump_chapters=False):
     print("\n" + "=" * 60)
     print("Pipeline execution complete! Check the 'outputs/' folder for results.")
     print("=" * 60)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="PyLadies Skill Gap Analyzer")
+
+    # Verifique se estes argumentos já existem:
+    parser.add_argument("--api-key", type=str, help="SerpApi API key")
+    parser.add_argument("--history-months", type=int, default=3, help="Number of months of history to analyze")
+    parser.add_argument("--dump-chapters", action="store_true", help="Dump chapter configurations")
+
+    # 🌟 ADICIONE ESTA LINHA QUE ESTÁ FALTANDO:
+    parser.add_argument("--instagram-user", type=str, help="Instagram username to analyze")
+
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
