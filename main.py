@@ -12,10 +12,9 @@ This script:
 import argparse
 import os
 
-from src.analyzer import align_instagram_events_with_market, calculate_gap_analysis
+from src.analyzer import calculate_gap_analysis
 from src.data_fetcher import (
     build_chapter_config,
-    fetch_instagram_profile_via_serpapi,
     fetch_jobs_from_serpapi,
     fetch_pyladies_chapters,
     fetch_pyladies_events,
@@ -25,7 +24,27 @@ from src.reporter import generate_visualizations, write_markdown_report
 # ------------------ 6. ORCHESTRATION PIPELINE ------------------
 
 
-def main(api_key=None, history_months=0, dump_chapters=False):
+def main(api_key=None, history_months=0, dump_chapters=False, instagram_user=None):
+    """
+    Main pipeline orchestrator.
+    """
+    # 🌟 O BLOCO DO INSTAGRAM FICA AQUI DENTRO, LOGO NO INÍCIO DA FUNÇÃO
+    if instagram_user:
+        print(f"[+] Directing request to SerpApi Instagram Profile engine for: @{instagram_user}")
+        from src.data_fetcher import fetch_instagram_profile_via_serpapi
+
+        profile_data = fetch_instagram_profile_via_serpapi(instagram_user, api_key)
+        if profile_data:
+            print("\n================ INSTAGRAM PROFILE DATA ================")
+            profile_info = profile_data.get("profile_info", {})
+            if profile_info:
+                print(f"Name: {profile_info.get('name')}")
+                print(f"Biography: {profile_info.get('biography')}")
+                print(f"Followers: {profile_info.get('followers')}")
+        else:
+            print(f"[-] Could not retrieve Instagram data for @{instagram_user}")
+        return  # Interrompe o pipeline para não rodar a busca de vagas do Meetup
+
     if dump_chapters:
         slugs = fetch_pyladies_chapters()
         if not slugs:
@@ -37,29 +56,6 @@ def main(api_key=None, history_months=0, dump_chapters=False):
             print(f"- {slug}")
 
         print("\nCopy these slugs into .pyladies_chapters.json or use them to build a chapter mapping.")
-        return
-
-    if args.instagram_user:
-        print("[+] Launching localized Instagram-to-Job alignment mapping sequence...")
-
-        # Fetch Instagram data via SerpApi
-        insta_payload = fetch_instagram_profile_via_serpapi(args.instagram_user, api_key=args.api_key)
-
-        if insta_payload:
-            # Fetch mock or live job market data array for comparison
-            # (Assuming 'sample_city_jobs' variable exists from your pipeline configurations)
-            sample_city_jobs = []
-
-            from src.config import SKILL_TAXONOMY
-
-            alignment_report = align_instagram_events_with_market(insta_payload, sample_city_jobs, SKILL_TAXONOMY)
-
-            print("\n================= ALIGNMENT METRICS REPORT =================")
-            print(f"Technologies found in community events: {alignment_report['chapter_skills_taught']}")
-            print(f"Market validation matching frequency: {alignment_report['aligned_market_demand']}")
-            print("============================================================\n")
-        else:
-            print("[-] Pipeline halted due to empty data ingestion layer metrics.")
         return
 
     # Prefer CLI-provided API key, then environment variable.
@@ -78,29 +74,55 @@ def main(api_key=None, history_months=0, dump_chapters=False):
     print("Starting PyLadies Skill-Market Alignment Pipeline")
     print("=" * 60)
 
+    # Loops through your structured chapter config mapping layer
     for city, group_slug in chapter_config.items():
-        print(f"\n>>> Processing {city} chapter...")
+        # Clean up "pyladies", hyphens, and trailing spaces cleanly
+        city_clean = city.replace("pyladies", "").replace("-", " ").strip()
 
-        # 1. Fetch data
-        job_descriptions = fetch_jobs_from_serpapi(city, api_key, history_months)
+        # Map short acronyms to real cities for accurate Google Jobs routing
+        city_map = {
+            "cle": "Cleveland",
+            "nyc": "New York",
+            "la": "Los Angeles",
+            "sf": "San Francisco",
+            "ams": "Amsterdam",
+            "br": "Brazil",  # Fallback for country acronym
+            "brasil": "Brazil",  # Intercepts Portuguese spelling to ensure English API mapping
+        }
+
+        # Resolve clean query based on abbreviation lookup or defaults (like Boston!)
+        city_query = city_map.get(city_clean.lower(), city_clean.capitalize())
+
+        # Safe fallback check for generic global handles
+        if not city_query or city_query == "Br":
+            city_query = "Brazil"
+
+        print(f"\n>>> Processing {group_slug} chapter (Market: {city_query})...")
+
+        # 1. Fetch data from live APIs
+        job_descriptions = fetch_jobs_from_serpapi(city_query, api_key, history_months)
         meetup_events, meetup_source = fetch_pyladies_events(group_slug, history_months)
 
-        # 2. Run analysis
-        gap_df = calculate_gap_analysis(city, job_descriptions, meetup_events)
+        # 2. Extract technical skills using taxonomy
+        if meetup_events and isinstance(meetup_events[0], dict):
+            event_texts = [f"{e.get('title', '')} {e.get('description', '')}" for e in meetup_events]
+        else:
+            event_texts = [str(e) for e in (meetup_events or [])]
 
-        # Add provenance/source column for this chapter's curriculum data
-        gap_df["Source"] = meetup_source
+        if job_descriptions and isinstance(job_descriptions[0], dict):
+            job_texts = [f"{j.get('title', '')} {j.get('description', '')}" for j in job_descriptions]
+        else:
+            job_texts = [str(j) for j in (job_descriptions or [])]
 
-        # 3. Save CSV
-        csv_path = os.path.join(output_dir, f"{city.lower().replace(' ', '_')}_gap_data.csv")
-        gap_df.to_csv(csv_path, index=False)
-        print(f"[+] Saved raw analysis data to: {csv_path} (Source: {meetup_source})")
+        gap_df = calculate_gap_analysis(city_query, job_texts, event_texts)
 
-        # 4. Generate visual plot
-        generate_visualizations(gap_df, city, output_dir)
-
-        # 5. Generate Markdown Report
-        write_markdown_report(gap_df, city, output_dir)
+        if not gap_df.empty:
+            os.makedirs(output_dir, exist_ok=True)
+            write_markdown_report(gap_df, city_query, output_dir)
+            generate_visualizations(gap_df, city_query, output_dir)
+            print(f"[+] Outputs updated successfully for chapter: {group_slug}")
+        else:
+            print(f"[-] No alignment data found to generate reports for {group_slug}.")
 
     print("\n" + "=" * 60)
     print("Pipeline execution complete! Check the 'outputs/' folder for results.")
@@ -114,8 +136,6 @@ def parse_args():
     parser.add_argument("--api-key", type=str, help="SerpApi API key")
     parser.add_argument("--history-months", type=int, default=3, help="Number of months of history to analyze")
     parser.add_argument("--dump-chapters", action="store_true", help="Dump chapter configurations")
-
-    # 🌟 ADICIONE ESTA LINHA QUE ESTÁ FALTANDO:
     parser.add_argument("--instagram-user", type=str, help="Instagram username to analyze")
 
     return parser.parse_args()
@@ -123,4 +143,10 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    main(api_key=args.api_key, history_months=args.history_months, dump_chapters=args.dump_chapters)
+    # 🌟 Fixed routing parameter mapping hook:
+    main(
+        api_key=args.api_key,
+        history_months=args.history_months,
+        dump_chapters=args.dump_chapters,
+        instagram_user=args.instagram_user,  # Pass the Instagram username to the main function
+    )

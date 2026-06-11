@@ -5,9 +5,10 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from typing import Optional
+from typing import List, Optional
 from urllib.parse import urlparse
 
+import serpapi
 from serpapi import Client as SerpApiClient
 
 from src.config import PERSISTED_CHAPTERS_FILE
@@ -88,70 +89,58 @@ def make_cutoff(history_months) -> datetime:
     return datetime.now(timezone.utc) - timedelta(days=history_months * 30)
 
 
-# ------------------ 2. Data Acquisition ------------------
+def fetch_jobs_from_serpapi(city: str, api_key: Optional[str] = None, history_months: int = 3) -> List[dict]:
+    """
+    Fetches live Python-related job descriptions from a specific city
+    using SerpApi's specialized Google Jobs API engine.
+    """
+    # 1. Cascade lookup for credential tokens
+    api_key = api_key or os.getenv("SERPAPI_KEY") or os.getenv("SERPAPI_API_KEY")
 
-
-def fetch_jobs_from_serpapi(city: str, api_key: str, history_months: int = 0) -> list:
-    """Fetches Python job listings from SerpApi (Google Jobs API) for a given city."""
     if not api_key:
-        print(f"[-] No SerpApi API key provided. Skipping job data fetch for {city}")
-        print("(no API key). Returning empty job set.")
+        print(f"[-] No SerpApi API key provided. Skipping job data fetch for {city}.")
         return []
 
-    cutoff = make_cutoff(history_months)
+    print(f"[+] Querying live tech jobs for '{city}' via SerpApi Google Jobs Engine...")
 
-    print(f"[+] Fetching Python jobs for {city} from SerpApi...")
+    # 2. Formulate query using target-rich keywords for Python communities
+    search_query = f"Python developer jobs in {city}"
+
+    params = {
+        "engine": "google_jobs",
+        "q": search_query,
+        "hl": "en",  # Get descriptions in English to fit the taxonomy matching
+        "gl": "us" if "boston" in city.lower() else "br",  # Handle regional routing
+    }
+
     try:
-        params = {
-            "engine": "google_jobs",
-            "q": f"Python Developer in {city}",
-            "hl": "en",
-            "api_key": api_key,
-        }
+        client = serpapi.Client(api_key=api_key)
+        results = client.search(params)
 
-        if GoogleSearch is not None:
-            search = GoogleSearch(params)
-            results = search.get_dict()
-        else:
-            client = SerpApiClient(api_key=api_key)
-            results = client.search(params).as_dict()
+        # 3. Extract the array containing structural job listings
+        jobs_list = results.get("jobs_results", [])
 
-        jobs = results.get("jobs_results", [])
-        filtered_jobs = []
-        for job in jobs:
-            if cutoff is None:
-                filtered_jobs.append(job)
-                continue
+        if not jobs_list:
+            print(f"[-] No jobs returned from SerpApi for query: '{search_query}'.")
+            return []
 
-            job_date = None
-            for key in [
-                "date",
-                "posted_at",
-                "posted_date",
-                "created_at",
-                "published_at",
-                "publication_date",
-            ]:
-                if key in job and job[key]:
-                    job_date = parse_date_string(str(job[key]))
-                    if job_date:
-                        break
+        print(f"[+] Successfully ingested {len(jobs_list)} structured job posts for {city}!")
 
-            if job_date is None:
-                filtered_jobs.append(job)
-            elif job_date >= cutoff:
-                filtered_jobs.append(job)
+        # 4. Standardize format to align with your analyzer data payload
+        normalized_jobs = []
+        for job in jobs_list:
+            normalized_jobs.append(
+                {
+                    "title": job.get("title", ""),
+                    "company": job.get("company_name", ""),
+                    "description": job.get("description", ""),  # Crucial field for Regex skill matching
+                }
+            )
 
-        descriptions = [job.get("description", "") for job in filtered_jobs if job.get("description")]
-        print(
-            f"[+] Extracted descriptions from {len(descriptions)} job postings "
-            f"(filtered to last {history_months} months)."
-            if cutoff
-            else f"[+] Extracted descriptions from {len(descriptions)} job postings."
-        )
-        return descriptions
-    except Exception as e:
-        print(f"[-] SerpApi fetch failed: {e}. No job data returned for {city}.")
+        return normalized_jobs
+
+    except Exception as error:
+        print(f"[-] Network transaction failed on Google Jobs engine tracking: {error}")
         return []
 
 
