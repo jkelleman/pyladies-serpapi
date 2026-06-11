@@ -100,3 +100,25 @@ python main.py --dump-chapters
 
 ## 📈 Outputs
 All generated execution reports, data tables, and Matplotlib data visualization png figures are saved directly into the dynamically created `outputs/` folder.
+
+---
+
+## 📈 Featured Case Study: PyLadies Boston 🇺🇸
+
+The **PyLadies Boston** chapter serves as our primary benchmark because it is one of the most active hubs in the global community. By analyzing their timeline, our pipeline successfully captured advanced, modern tech trends that standard tools miss.
+
+### 📊 Real-Time Skill Alignment Visual
+When running the pipeline, a dual-variable visualization chart is generated automatically inside the `outputs/` directory.
+
+<!-- GitHub will automatically render this image if it is pushed to your repository -->
+![PyLadies Boston Skill Gap Analysis](outputs/skill_gap_chart_pyladies-boston.png)
+
+### 🔍 Key Insights & Analysis
+Our taxonomy matching layer discovered highly relevant data points during the Boston analysis execution:
+
+- **The Curriculum Pink Bars:** The pipeline successfully parsed 8 recent events from the chapter's RSS feed, capturing traditional fundamentals (`Python`) alongside bleeding-edge ecosystem topics like **"Agentic Coding"** (AI Agents) and **"Positron"** (the new Next-Generation IDE for Data Science by Posit).
+- **The Market Demand Blue Bars:** By querying the live **SerpApi Google Jobs API** for *"Python developer jobs in Boston"*, the tool dynamically fetched active job descriptions to measure how frequently those exact technologies are requested by local employers.
+
+This benchmark perfectly demonstrates the core value of the tool: identifying exactly when a local community's curriculum matches or anticipates real job market demands!
+
+---
