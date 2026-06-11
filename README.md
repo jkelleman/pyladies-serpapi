@@ -1,11 +1,26 @@
 # PyLadies Skill Gap Analyzer 📊🔍
 
-An automated data pipeline designed to analyze educational trends and identify "skill gaps" across local **PyLadies** chapters. By leveraging **SerpApi**, the tool maps out existing chapter locations, extracts technologies taught in past events, and compares them with current job market demands.
+An automated data pipeline designed to analyze educational trends and identify "skill gaps" across local **PyLadies** chapters. By leveraging structured search data, this tool maps out existing chapter locations, extracts technologies taught in past events, and compares them with current developer community needs.
+
+This project was built using **[SerpApi](https://serpapi.com)** to solve anti-bot scraping restrictions and access structured social profile data seamlessly.
+
+---
+
+## 🛠️ Powered by SerpApi
+
+Instead of writing fragile and easily-blocked HTML scrapers for platform discovery, this application utilizes specialized engines provided by SerpApi to extract clean, reliable data:
+
+1. **Google Search API (`site:` operator):** Used to dynamically discover PyLadies chapters listed on Meetup without triggers from Cloudflare protections. Read the [SerpApi Google Search API Documentation](https://serpapi.com).
+2. **Instagram Profile API (`engine: instagram_profile`):** Used to securely pull biography descriptions and profile details from public local chapter accounts. Read the [SerpApi Instagram Profile API Documentation](https://serpapi.com).
+
+This workflow perfectly demonstrates how **structured search results are vastly superior and easier to maintain than scraping raw HTML**.
+
+---
 
 ## 🚀 Features
 
-- **Automated Chapter Discovery:** Uses Google Custom Search operators via SerpApi (`site:meetup.com`) to dynamically map out PyLadies chapters without getting blocked by anti-bot protections.
-- **Instagram Profile Scraping:** Uses the SerpApi `instagram_profile` engine to safely extract biography and update descriptions from local chapters' public profiles.
+- **Automated Chapter Discovery:** Leverages Google's indexed database via SerpApi to discover valid chapter URLs.
+- **Social Media Insight Extraction:** Inspects local chapters' public Instagram accounts using the specialized SerpApi social engine.
 - **Skill Taxonomy Matching:** Cross-references extracted textual data against a predefined Python ecosystem taxonomy (e.g., Django, FastAPI, Data Science, Pandas).
 - **Visual Analytics:** Automatically generates comparative bar charts and exports data into clean Markdown reporting files.
 
@@ -20,7 +35,7 @@ pyladies-serpapi/
 ├── src/
 │   ├── __init__.py          # Package initializer
 │   ├── config.py            # Static variables and skill taxonomies
-│   ├── data_fetcher.py      # Network calls (SerpApi, Meetup, Instagram)
+│   ├── data_fetcher.py      # Network calls using SerpApi engines
 │   ├── analyzer.py          # Data processing and skill mapping logic
 │   └── reporter.py          # Visual graph generation and Markdown reporting
 ├── main.py                  # CLI argument parser and pipeline orchestrator
@@ -30,7 +45,7 @@ pyladies-serpapi/
 
 ---
 
-## 🛠️ Installation & Setup
+## 💻 Installation & Setup
 
 1. **Clone the repository:**
    ```bash
@@ -45,25 +60,26 @@ pyladies-serpapi/
    ```
 
 3. **Install Dependencies:**
+   This project communicates with SerpApi through the official integration client.
    ```bash
    pip install -r requirements.txt
    ```
-   *Note: If you are running on macOS with default LibreSSL bindings, `urllib3<2` is pre-configured to avoid initialization warnings.*
+   *(Note: Check out the official [SerpApi Python SDK Repository](https://github.com) for more details on setup).*
 
 4. **Environment Variables:**
-   Create a `.env` file in the root directory and add your SerpApi credential token:
+   Create a `.env` file in the root directory and add your SerpApi token:
    ```env
    SERPAPI_KEY="your_secret_serpapi_api_key_here"
    ```
 
 ---
 
-## 💻 Usage
+## 🎯 Usage
 
-Run the orchestrator script using the command-line interface. You must provide arguments using the correct hyphenation flags (`--`).
+Run the orchestrator script using the command-line interface with the proper hyphenation flags (`--`).
 
 ### Basic Analysis
-Analyze events hosted within the last 6 months:
+Analyze events hosted within the last few months:
 ```bash
 python main.py --history-months 6
 ```
