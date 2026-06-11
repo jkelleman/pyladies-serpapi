@@ -101,7 +101,7 @@ SKILL_TAXONOMY = {
 ALL_SKILLS = [skill for sublist in SKILL_TAXONOMY.values() for skill in sublist]
 
 # ------------------ 1.b Default Chapter Configuration ------------------
-CITIES_CONFIG = {"Boston": "pyladies-boston", "Houston": "houston_pyladies", "Seoul": "seoul-pyladies-meetup"}
+PERSISTED_CHAPTERS_FILE = ".pyladies_chapters.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -157,8 +157,9 @@ def make_cutoff(history_months: int) -> Optional[datetime]:
 def fetch_jobs_from_serpapi(city: str, api_key: str, history_months: int = 0) -> list:
     """Fetches Python job listings from SerpApi (Google Jobs API) for a given city."""
     if not api_key:
-        print(f"[-] No SerpApi API key provided. Skipping job data fetch for {city} (Demo Mode).")
-        return get_mock_jobs(city)
+        print(f"[-] No SerpApi API key provided. Skipping job data fetch for {city}")
+        print("(no API key). Returning empty job set.")
+        return []
 
     cutoff = make_cutoff(history_months)
 
@@ -213,13 +214,16 @@ def fetch_jobs_from_serpapi(city: str, api_key: str, history_months: int = 0) ->
         )
         return descriptions
     except Exception as e:
-        print(f"[-] SerpApi fetch failed: {e}. Falling back to mock data.")
-        return get_mock_jobs(city)
+        print(f"[-] SerpApi fetch failed: {e}. No job data returned for {city}.")
+        return []
 
 
-def fetch_pyladies_events(group_slug: str, history_months: int = 0) -> list:
+def fetch_pyladies_events(group_slug: str, history_months: int = 0) -> tuple:
     """
     Fetch PyLadies events from the Meetup RSS feed for the chapter.
+
+    Returns a tuple: (events_list, source_tag) where source_tag is one of
+    'meetup_rss' or 'none'.
     """
     cutoff = make_cutoff(history_months)
     print(f"[+] Fetching public RSS feed for PyLadies group: {group_slug}...")
@@ -254,10 +258,175 @@ def fetch_pyladies_events(group_slug: str, history_months: int = 0) -> list:
             if cutoff
             else f"[+] Successfully parsed {len(events)} events from RSS."
         )
-        return events
+        return events, "meetup_rss"
     except Exception as e:
-        print(f"[-] Meetup RSS feed unavailable ({e}). Using mock curriculum data.")
-        return get_mock_curriculum(group_slug)
+        print(f"[-] Meetup RSS feed unavailable ({e}). No curriculum events returned for {group_slug}.")
+        return [], "none"
+
+
+def load_persisted_chapter_slugs() -> list:
+    if not os.path.exists(PERSISTED_CHAPTERS_FILE):
+        return {}
+    try:
+        with open(PERSISTED_CHAPTERS_FILE, "r", encoding="utf-8") as handle:
+            import json
+
+            data = json.load(handle)
+        # Support legacy format (list of slugs) and new format (dict of slug->meta)
+        if isinstance(data, list):
+            return {slug: {"source": "persisted"} for slug in data if isinstance(slug, str)}
+        if isinstance(data, dict):
+            return data
+        return {}
+    except Exception as e:
+        print(f"[-] Failed to load persisted chapter slugs: {e}")
+        return {}
+
+
+def fetch_instagram_profile_via_serpapi(username: str, api_key: Optional[str] = None):
+    api_key = api_key or os.environ.get("SERPAPI_API_KEY")
+    if not api_key:
+        return None
+    try:
+        client = SerpApiClient(api_key=api_key)
+        params = {"engine": "instagram_profile", "username": username, "api_key": api_key}
+        results = client.search(params).as_dict()
+        return results
+    except Exception:
+        # try GoogleSearch wrapper if available
+        try:
+            if GoogleSearch is not None:
+                search = GoogleSearch({"engine": "instagram_profile", "username": username, "api_key": api_key})
+                return search.get_dict()
+        except Exception:
+            pass
+    return None
+
+
+def save_persisted_chapter_slugs(slugs) -> None:
+    """Accepts either a list of slug strings or a dict mapping slug->meta and persists metadata.
+
+    For any newly provided slug (from a list), the function will attempt to enrich with
+    Instagram profile info (best-effort) and store a mapping: slug -> {source, instagram, added_at}.
+    """
+    try:
+        import json
+        from datetime import datetime
+
+        existing = load_persisted_chapter_slugs() or {}
+
+        # Normalize incoming slugs into a dict
+        if isinstance(slugs, list):
+            incoming = {}
+            for slug in slugs:
+                incoming[slug] = {"source": "serpapi", "added_at": datetime.utcnow().isoformat()}
+        elif isinstance(slugs, dict):
+            incoming = slugs
+        else:
+            print("[-] Unsupported slugs payload for persistence.")
+            return
+
+        # Merge and enrich
+        merged = dict(existing)
+        for slug, meta in incoming.items():
+            if slug in merged:
+                # keep existing metadata but update source if missing
+                merged[slug].setdefault("source", meta.get("source", "serpapi"))
+            else:
+                merged[slug] = {"source": meta.get("source", "serpapi"), "added_at": meta.get("added_at")}
+                # best-effort: try to fetch Instagram profile using slug as username
+                try:
+                    insta = fetch_instagram_profile_via_serpapi(slug)
+                    if insta:
+                        merged[slug]["instagram"] = insta
+                except Exception:
+                    pass
+
+        with open(PERSISTED_CHAPTERS_FILE, "w", encoding="utf-8") as handle:
+            json.dump(merged, handle, indent=2, ensure_ascii=False)
+
+        print(f"[+] Saved {len(merged)} discovered chapter slugs to {PERSISTED_CHAPTERS_FILE}.")
+    except Exception as e:
+        print(f"[-] Failed to persist chapter slugs: {e}")
+
+
+def fetch_chapters_via_serpapi(api_key: Optional[str] = None, num: int = 100) -> list:
+    """Use SerpApi (Google) to find Meetup group slugs related to PyLadies.
+
+    Returns a list of unique slugs (e.g. 'pyladies-boston', 'houston_pyladies').
+    """
+    api_key = api_key or os.environ.get("SERPAPI_API_KEY")
+    if not api_key:
+        print("[-] No SerpApi API key available for SerpApi-based chapter discovery.")
+        return []
+
+    print("[+] Fetching chapter list via SerpApi (Google index)...")
+
+    params = {
+        "engine": "google",
+        "q": "site:meetup.com pyladies",
+        "hl": "en",
+        "num": num,
+        "api_key": api_key,
+    }
+
+    try:
+        client = SerpApiClient(api_key=api_key)
+        results = client.search(params).as_dict()
+    except Exception:
+        # Try the older GoogleSearch wrapper if available
+        try:
+            if GoogleSearch is not None:
+                search = GoogleSearch(params)
+                results = search.get_dict()
+            else:
+                raise
+        except Exception as e:
+            print(f"[-] SerpApi query failed: {e}")
+            return []
+
+    organic = results.get("organic_results", []) or []
+    slugs = set()
+
+    for item in organic:
+        link = item.get("link") or item.get("displayed_link") or ""
+        if not link:
+            continue
+
+        # Normalize and extract path segment after meetup.com/
+        m = re.search(r"meetup\.com/(?:[A-Za-z\-]+/)?([A-Za-z0-9_\-]+)", link)
+        if not m:
+            continue
+        slug = m.group(1)
+        slug_l = slug.lower()
+
+        # Keep only PyLadies-related groups (most slugs contain 'pyladies')
+        if "pyladies" not in slug_l:
+            continue
+
+        # Filter out known non-group paths
+        if slug_l in {"topics", "apps", "find", "explore", "lp", "events"}:
+            continue
+
+        slugs.add(slug)
+
+    print(f"[+] SerpApi discovered {len(slugs)} candidate chapter slugs.")
+    return sorted(slugs)
+
+
+def build_chapter_config(api_key: Optional[str] = None) -> dict:
+    persisted = load_persisted_chapter_slugs()
+    if persisted:
+        print(f"[+] Loaded {len(persisted)} persisted chapter slugs.")
+        return {slug: slug for slug in persisted}
+
+    discovered = fetch_chapters_via_serpapi(api_key=api_key)
+    if discovered:
+        save_persisted_chapter_slugs(discovered)
+        return {slug: slug for slug in discovered}
+
+    print("[-] No chapter slugs available; please populate .pyladies_chapters.json or run --dump-chapters.")
+    return {}
 
 
 def fetch_pyladies_chapters(topic_url: str = "https://www.meetup.com/pt-BR/topics/pyladies/all/") -> list:
@@ -288,6 +457,13 @@ def fetch_pyladies_chapters(topic_url: str = "https://www.meetup.com/pt-BR/topic
             slugs.add(path)
 
     # If static HTML parsing found no slugs, try rendering the page with Playwright
+    # If static HTML parsing found no slugs, try SerpApi index-based discovery first
+    if not slugs:
+        serpapi_slugs = fetch_chapters_via_serpapi()
+        if serpapi_slugs:
+            print("[+] Using SerpApi-discovered slugs.")
+            return serpapi_slugs
+
     if not slugs and sync_playwright is not None:
         print("[+] No slugs found in static HTML — trying Playwright render fallback...")
         try:
@@ -323,35 +499,6 @@ def fetch_pyladies_chapters(topic_url: str = "https://www.meetup.com/pt-BR/topic
             print("`pip install playwright` and run `playwright install`.")
 
     return sorted(slugs)
-
-
-# ------------------ 3. MOCK DATA (For Demo Mode/Fallbacks) ------------------
-
-
-def get_mock_jobs(city: str) -> list:
-    """
-    Returns sample job descriptions with realistic skill distributions.
-    """
-    return [
-        "We are looking for a Python Developer experienced with Django, PostgreSQL, and AWS. Docker is a plus.",
-        "Senior Data Scientist role. Must know Pandas, NumPy, PyTorch, and SQL. Experience with Jupyter is required.",
-        "Backend Engineer: FastAPI, REST APIs, Docker, and CI/CD. AWS or GCP cloud experience is highly preferred.",
-        "Python Developer with strong SQL, Git, and Pytest skills. Django or Flask experience is a benefit.",
-        "Data Engineer: Building pipelines with Pandas, Polars, and PostgreSQL. Deploying on AWS using Docker.",
-    ] * 5  # Multiply to simulate a larger dataset
-
-
-def get_mock_curriculum(group_slug: str) -> list:
-    """
-    Returns sample past workshops for PyLadies chapters.
-    """
-    return [
-        "Intro to Python Basics and Git version control",
-        "Data Analysis 101: Getting started with Pandas and Jupyter Notebooks",
-        "Building your first web application using Flask and SQLite",
-        "PyLadies Hackathon: Collaborative coding with GitHub",
-        "Introduction to SQL databases and basic queries using Python",
-    ]
 
 
 # ------------------ 4. ANALYSIS ENGINE  ------------------
@@ -418,9 +565,21 @@ def calculate_gap_analysis(city: str, job_texts: list, meetup_texts: list) -> pd
 def generate_visualizations(df: pd.DataFrame, city: str, output_dir: str):
     """
     Generates a side-by-side bar chart showing the biggest skill gaps.
+
+    Aggregates rows by `Skill` to avoid duplicate skill labels coming from multiple
+    taxonomy categories (e.g., `Flask` appearing under both Web Frameworks and
+    Software Engineering). Aggregation takes the max observed percentage for
+    Market and Curriculum coverage per skill before computing the Gap.
     """
+    # Aggregate by Skill to ensure unique labels in the chart
+    if "Skill" in df.columns:
+        agg = df.groupby("Skill")[["Market Demand (%)", "Curriculum Coverage (%)"]].max().reset_index()
+        agg["Gap (%)"] = agg["Market Demand (%)"] - agg["Curriculum Coverage (%)"]
+    else:
+        agg = df.copy()
+
     # Filter to show only skills that have at least some market demand or curriculum coverage
-    active_skills = df[(df["Market Demand (%)"] > 0) | (df["Curriculum Coverage (%)"] > 0)]
+    active_skills = agg[(agg["Market Demand (%)"] > 0) | (agg["Curriculum Coverage (%)"] > 0)]
     active_skills = active_skills.sort_values("Gap (%)", ascending=False).head(12)
 
     if active_skills.empty:
@@ -529,7 +688,7 @@ def main(api_key=None, history_months=0, dump_chapters=False):
         for slug in slugs:
             print(f"- {slug}")
 
-        print("\nCopy these slugs into CITIES_CONFIG or use them to build a chapter mapping.")
+        print("\nCopy these slugs into .pyladies_chapters.json or use them to build a chapter mapping.")
         return
 
     # Prefer CLI-provided API key, then environment variable.
@@ -537,32 +696,34 @@ def main(api_key=None, history_months=0, dump_chapters=False):
     if api_key:
         print("[+] Using SerpApi API key from command-line or environment.")
     else:
-        print(
-            "[-] No SerpApi API key provided. Skipping job data fetch "
-            "and using demo mode. Set SERPAPI_API_KEY or use --api-key."
-        )
+        print("[-] No SerpApi API key provided. Skipping job data fetch for jobs; job data will be empty.")
 
     output_dir = "outputs"
     os.makedirs(output_dir, exist_ok=True)
+
+    chapter_config = build_chapter_config(api_key=api_key)
 
     print("=" * 60)
     print("Starting PyLadies Skill-Market Alignment Pipeline")
     print("=" * 60)
 
-    for city, group_slug in CITIES_CONFIG.items():
+    for city, group_slug in chapter_config.items():
         print(f"\n>>> Processing {city} chapter...")
 
         # 1. Fetch data
         job_descriptions = fetch_jobs_from_serpapi(city, api_key, history_months)
-        meetup_events = fetch_pyladies_events(group_slug, history_months)
+        meetup_events, meetup_source = fetch_pyladies_events(group_slug, history_months)
 
         # 2. Run analysis
         gap_df = calculate_gap_analysis(city, job_descriptions, meetup_events)
 
+        # Add provenance/source column for this chapter's curriculum data
+        gap_df["Source"] = meetup_source
+
         # 3. Save CSV
         csv_path = os.path.join(output_dir, f"{city.lower().replace(' ', '_')}_gap_data.csv")
         gap_df.to_csv(csv_path, index=False)
-        print(f"[+] Saved raw analysis data to: {csv_path}")
+        print(f"[+] Saved raw analysis data to: {csv_path} (Source: {meetup_source})")
 
         # 4. Generate visual plot
         generate_visualizations(gap_df, city, output_dir)
