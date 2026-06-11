@@ -110,8 +110,7 @@ The **PyLadies Boston** chapter serves as our primary benchmark because it is on
 ### 📊 Real-Time Skill Alignment Visual
 When running the pipeline, a dual-variable visualization chart is generated automatically inside the `outputs/` directory.
 
-<!-- GitHub will automatically render this image if it is pushed to your repository -->
-![PyLadies Boston Skill Gap Analysis](outputs/skill_gap_chart_pyladies-boston.png)
+![PyLadies Boston Skill Gap Analysis](outputs/boston_gap_chart.png)
 
 ### 🔍 Key Insights & Analysis
 Our taxonomy matching layer discovered highly relevant data points during the Boston analysis execution:
