@@ -3,7 +3,7 @@ import os
 import re
 import urllib.request
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Optional
 from urllib.parse import urlparse
@@ -64,10 +64,28 @@ def parse_date_string(date_string: str) -> Optional[datetime]:
         return None
 
 
-def make_cutoff(history_months: int) -> Optional[datetime]:
+def make_cutoff(history_months) -> datetime:
+    """
+    Calculates the past date cutoff point based on a given number of months.
+    Ensures input values are strictly parsed as integers to avoid text/number conflicts.
+    """
+    # Fallback to a default of 3 months if the argument is missing or None
+    if history_months is None:
+        history_months = 3
+
+    try:
+        # Cast to integer to enforce clean types and prevent 'str' vs 'int' errors
+        history_months = int(history_months)
+    except (ValueError, TypeError):
+        print("[-] Warning: Invalid history_months value received. Defaulting to 3 months.")
+        history_months = 3
+
+    # If months are zero or negative, return a far-past date to fetch all available records
     if history_months <= 0:
-        return None
-    return datetime.utcnow() - datetime.timedelta(days=history_months * 30)
+        return datetime.min.replace(tzinfo=timezone.utc)
+
+    # Calculate target offset threshold securely using timezone-aware UTC datetime
+    return datetime.now(timezone.utc) - timedelta(days=history_months * 30)
 
 
 # ------------------ 2. Data Acquisition ------------------
@@ -202,24 +220,44 @@ def load_persisted_chapter_slugs() -> list:
         return {}
 
 
-def fetch_instagram_profile_via_serpapi(username: str, api_key: Optional[str] = None):
-    api_key = api_key or os.environ.get("SERPAPI_API_KEY")
+def fetch_instagram_profile_via_serpapi(username: str, api_key: Optional[str] = None) -> Optional[dict]:
+    """
+    Fetches raw public Instagram profile data and recent post details via SerpApi.
+    """
+    # Fallback lookup cascade for the API token
+    api_key = api_key or os.environ.get("SERPAPI_KEY") or os.environ.get("SERPAPI_API_KEY")
+
     if not api_key:
+        print("[-] Error: Missing SerpApi credential token.")
         return None
+
+    clean_username = username.lstrip("@")
+
+    # Target endpoint configuration mapping
+    params = {
+        "engine": "instagram_profile",
+        "profile_id": clean_username,  # Parameter expected by the Instagram schema
+        "api_key": api_key,
+    }
+
+    print(f"[+] Routing to: https://serpapi.com/{clean_username}")
+
     try:
-        client = SerpApiClient(api_key=api_key)
-        params = {"engine": "instagram_profile", "username": username, "api_key": api_key}
-        results = client.search(params).as_dict()
+        if GoogleSearch is not None:
+            search = GoogleSearch(params)
+            results = search.get_dict()
+        else:
+            client = SerpApiClient(api_key=api_key)
+            results = client.search(params).as_dict()
+
+        if isinstance(results, dict) and results.get("error"):
+            print(f"[-] SerpApi Error response payload: {results.get('error')}")
+            return None
+
         return results
-    except Exception:
-        # try GoogleSearch wrapper if available
-        try:
-            if GoogleSearch is not None:
-                search = GoogleSearch({"engine": "instagram_profile", "username": username, "api_key": api_key})
-                return search.get_dict()
-        except Exception:
-            pass
-    return None
+    except Exception as error:
+        print(f"[-] Catastrophic connection failure on Instagram routing execution: {error}")
+        return None
 
 
 def save_persisted_chapter_slugs(slugs) -> None:

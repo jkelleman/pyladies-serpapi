@@ -6,62 +6,42 @@ import pandas as pd
 
 def generate_visualizations(df: pd.DataFrame, city: str, output_dir: str):
     """
-    Generates a side-by-side bar chart showing the biggest skill gaps.
-
-    Aggregates rows by `Skill` to avoid duplicate skill labels coming from multiple
-    taxonomy categories (e.g., `Flask` appearing under both Web Frameworks and
-    Software Engineering). Aggregation takes the max observed percentage for
-    Market and Curriculum coverage per skill before computing the Gap.
+    Generates a clean comparative bar chart comparing PyLadies curriculum against job market demand.
     """
-    # Aggregate by Skill to ensure unique labels in the chart
-    if "Skill" in df.columns:
-        agg = df.groupby("Skill")[["Market Demand (%)", "Curriculum Coverage (%)"]].max().reset_index()
-        agg["Gap (%)"] = agg["Market Demand (%)"] - agg["Curriculum Coverage (%)"]
-    else:
-        agg = df.copy()
-
-    # Filter to show only skills that have at least some market demand or curriculum coverage
-    active_skills = agg[(agg["Market Demand (%)"] > 0) | (agg["Curriculum Coverage (%)"] > 0)]
-    active_skills = active_skills.sort_values("Gap (%)", ascending=False).head(12)
-
-    if active_skills.empty:
-        print(f"[-] No overlapping active skills to plot for {city}.")
+    if df is None or df.empty:
+        print("[-] Warning: No alignment data available to plot.")
         return
 
-    plt.figure(figsize=(12, 7))
-    x = range(len(active_skills))
-    width = 0.35
+    chart_path = os.path.join(output_dir, f"{city.lower().replace(' ', '_')}_gap_chart.png")
 
-    plt.bar(
-        [i - width / 2 for i in x],
-        active_skills["Market Demand (%)"],
-        width,
-        label="Market Demand (%)",
-        color="#1f77b4",
-    )
-    plt.bar(
-        [i + width / 2 for i in x],
-        active_skills["Curriculum Coverage (%)"],
-        width,
-        label="Curriculum Coverage (%)",
-        color="#e377c2",
+    df = df.copy()
+    df["Market Demand (%)"] = df.get("Market Demand (%)", 0).fillna(0)
+    df["Curriculum Coverage (%)"] = df.get("Curriculum Coverage (%)", 0).fillna(0)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    if "Skill" in df.columns:
+        plot_x = "Skill"
+    elif "Skills" in df.columns:
+        plot_x = "Skills"
+    else:
+        print("[-] Warning: No skill label column found for plotting.")
+        return
+
+    df.plot(
+        kind="bar", x=plot_x, y=["Market Demand (%)", "Curriculum Coverage (%)"], ax=ax, color=["#1f77b4", "#e377c2"]
     )
 
-    plt.xlabel("Skills", fontsize=12)
-    plt.ylabel("Frequency (%)", fontsize=12)
-    plt.title(
-        f"Skill Gap Analysis: PyLadies {city} vs Local Job Market",
-        fontsize=14,
-        fontweight="bold",
-    )
-    plt.xticks(x, active_skills["Skill"], rotation=45, ha="right")
-    plt.legend()
+    ax.set_title(f"Skill Gap Analysis: PyLadies {city} vs Local Job Market", fontsize=12, fontweight="bold")
+    ax.set_ylabel("Frequency (%)", fontsize=10)
+    ax.set_xlabel(plot_x, fontsize=10)
+
+    plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
 
-    plot_path = os.path.join(output_dir, f"{city.lower().replace(' ', '_')}_gap_chart.png")
-    plt.savefig(plot_path, dpi=150)
+    plt.savefig(chart_path, dpi=300)
     plt.close()
-    print(f"[+] Saved visualization chart to: {plot_path}")
+    print(f"[+] Clean analytical chart saved successfully to: {chart_path}")
 
 
 def write_markdown_report(df: pd.DataFrame, city: str, output_dir: str):

@@ -16,6 +16,13 @@ SKILL_TAXONOMY = {
         "Seaborn",
         "Plotly",
     ],
+    "AI & Agentic Systems": [  # 🌟 Added to match modern Boston topics
+        "Agentic Coding",
+        "AI Agents",
+        "LLM",
+        "LangChain",
+        "RAG",
+    ],
     "Cloud & DevOps": [
         "AWS",
         "Azure",
@@ -36,9 +43,6 @@ SKILL_TAXONOMY = {
         "Data Pipelines",
     ],
     "Software Engineering": [
-        "Flask",
-        "Django",
-        "FastAPI",
         "OOP",
         "Design Patterns",
         "Clean Code",
@@ -48,9 +52,13 @@ SKILL_TAXONOMY = {
     "Version Control": ["Git", "GitHub", "GitLab", "Bitbucket"],
     "Databases": ["SQL", "NoSQL", "PostgreSQL", "MySQL", "MongoDB", "Redis", "SQLite"],
     "APIs & Microservices": ["REST", "GraphQL", "gRPC", "OpenAPI", "Swagger"],
+    "Tools & R Ecosystem": [  # 🌟 Added to catch Event #4 from Boston
+        "R",
+        "Positron",
+        "Posit",
+    ],
     "Other": [
         "Python",
-        "OOP",
         "Functional Programming",
         "Asyncio",
         "Multithreading",
@@ -61,6 +69,7 @@ SKILL_TAXONOMY = {
         "Performance Optimization",
     ],
 }
+
 
 ALL_SKILLS = [skill for sublist in SKILL_TAXONOMY.values() for skill in sublist]
 

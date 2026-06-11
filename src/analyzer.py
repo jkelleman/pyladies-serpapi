@@ -1,5 +1,6 @@
 import re
 from collections import Counter
+from typing import Dict, List
 
 import pandas as pd
 
@@ -61,3 +62,41 @@ def calculate_gap_analysis(city: str, job_texts: list, meetup_texts: list) -> pd
             )
 
     return pd.DataFrame(rows)
+
+
+def align_instagram_events_with_market(
+    instagram_data: dict, market_jobs: List[dict], skill_taxonomy: Dict[str, List[str]]
+) -> dict:
+    """
+    Extracts tech keywords from Instagram metrics and maps alignment with local job profiles.
+    """
+    # 1. Harvest texts from profile bio and post captions
+    profile_info = instagram_data.get("profile_info", {})
+    source_text = profile_info.get("biography", "") + " "
+
+    # Concatenate captions from recent posts
+    for post in instagram_data.get("posts", []):
+        source_text += post.get("caption", "") + " "
+
+    # 2. Extract mentioned technologies using regular expressions
+    detected_skills = set()
+    for category, keywords in skill_taxonomy.items():
+        for keyword in keywords:
+            # Word boundary matching prevents partial word triggers
+            if re.search(r"\b" + re.escape(keyword) + r"\b", source_text, re.IGNORECASE):
+                detected_skills.add(keyword)
+
+    # 3. Process jobs list data to check against market requirements
+    market_demand_counts = {}
+    for job in market_jobs:
+        description = job.get("description", "")
+        for skill in detected_skills:
+            if re.search(r"\b" + re.escape(skill) + r"\b", description, re.IGNORECASE):
+                market_demand_counts[skill] = market_demand_counts.get(skill, 0) + 1
+
+    # 4. Generate alignment scorecard metrics
+    return {
+        "chapter_skills_taught": list(detected_skills),
+        "aligned_market_demand": market_demand_counts,
+        "unmatched_skills_count": len(detected_skills) - len(market_demand_counts),
+    }

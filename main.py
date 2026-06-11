@@ -11,9 +11,10 @@ This script:
 
 import os
 
-from src.analyzer import calculate_gap_analysis
+from src.analyzer import align_instagram_events_with_market, calculate_gap_analysis
 from src.data_fetcher import (
     build_chapter_config,
+    fetch_instagram_profile_via_serpapi,
     fetch_jobs_from_serpapi,
     fetch_pyladies_chapters,
     fetch_pyladies_events,
@@ -36,6 +37,29 @@ def main(api_key=None, history_months=0, dump_chapters=False):
             print(f"- {slug}")
 
         print("\nCopy these slugs into .pyladies_chapters.json or use them to build a chapter mapping.")
+        return
+
+    if args.instagram_user:
+        print("[+] Launching localized Instagram-to-Job alignment mapping sequence...")
+
+        # Fetch Instagram data via SerpApi
+        insta_payload = fetch_instagram_profile_via_serpapi(args.instagram_user, api_key=args.api_key)
+
+        if insta_payload:
+            # Fetch mock or live job market data array for comparison
+            # (Assuming 'sample_city_jobs' variable exists from your pipeline configurations)
+            sample_city_jobs = []
+
+            from src.config import SKILL_TAXONOMY
+
+            alignment_report = align_instagram_events_with_market(insta_payload, sample_city_jobs, SKILL_TAXONOMY)
+
+            print("\n================= ALIGNMENT METRICS REPORT =================")
+            print(f"Technologies found in community events: {alignment_report['chapter_skills_taught']}")
+            print(f"Market validation matching frequency: {alignment_report['aligned_market_demand']}")
+            print("============================================================\n")
+        else:
+            print("[-] Pipeline halted due to empty data ingestion layer metrics.")
         return
 
     # Prefer CLI-provided API key, then environment variable.
