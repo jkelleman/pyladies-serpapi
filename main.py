@@ -12,6 +12,10 @@ This script:
 import argparse
 import os
 
+# 1. Third-party library imports (Alphabetical order)
+from dotenv import load_dotenv
+
+# 2. Local application/library imports (Alphabetical order)
 from src.analyzer import calculate_gap_analysis
 from src.data_fetcher import (
     build_chapter_config,
@@ -20,6 +24,10 @@ from src.data_fetcher import (
     fetch_pyladies_events,
 )
 from src.reporter import generate_visualizations, write_markdown_report
+
+# 3. Code execution happens ONLY after ALL imports are completely declared
+load_dotenv()
+
 
 # ------------------ 6. ORCHESTRATION PIPELINE ------------------
 

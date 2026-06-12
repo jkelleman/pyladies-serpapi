@@ -5,8 +5,8 @@ This report evaluates local Python job postings against the past workshop topics
 ## 🚀 Top 5 Curriculum Recommendations
 These skills are highly requested by employers but have been underrepresented in recent workshops. Consider designing a workshop or study group around them:
 
-- **FastAPI** (Web Frameworks): Market Demand is at **40.0%**, but Chapter Coverage is only **0.0%** (Gap: **+40.0%**).
-- **AWS** (Cloud & DevOps): Market Demand is at **40.0%**, but Chapter Coverage is only **0.0%** (Gap: **+40.0%**).
+- **FastAPI** (Web Frameworks): Market Demand is at **50.0%**, but Chapter Coverage is only **0.0%** (Gap: **+50.0%**).
+- **AWS** (Cloud & DevOps): Market Demand is at **50.0%**, but Chapter Coverage is only **0.0%** (Gap: **+50.0%**).
 - **Kubernetes** (Cloud & DevOps): Market Demand is at **40.0%**, but Chapter Coverage is only **0.0%** (Gap: **+40.0%**).
 - **SQL** (Databases): Market Demand is at **40.0%**, but Chapter Coverage is only **0.0%** (Gap: **+40.0%**).
 - **Azure** (Cloud & DevOps): Market Demand is at **30.0%**, but Chapter Coverage is only **0.0%** (Gap: **+30.0%**).
@@ -16,9 +16,9 @@ Great job! These in-demand skills are already well-covered in your curriculum:
 
 - **Python** (Market: 100.0%, Curriculum: 100.0%)
 - **Performance Optimization** (Market: 10.0%, Curriculum: 0.0%)
-- **REST** (Market: 10.0%, Curriculum: 0.0%)
-- **Design Patterns** (Market: 10.0%, Curriculum: 0.0%)
+- **MongoDB** (Market: 10.0%, Curriculum: 0.0%)
 - **ETL** (Market: 10.0%, Curriculum: 0.0%)
+- **Hadoop** (Market: 10.0%, Curriculum: 0.0%)
 
 ## 📊 Complete Skill Matrix
 
@@ -29,15 +29,15 @@ Great job! These in-demand skills are already well-covered in your curriculum:
 | AI & Agentic Systems | AI Agents | 0.0% | 0.0% | 0.0% |
 | AI & Agentic Systems | LLM | 0.0% | 0.0% | 0.0% |
 | AI & Agentic Systems | RAG | 0.0% | 0.0% | 0.0% |
+| APIs & Microservices | REST | 20.0% | 0.0% | 20.0% |
 | APIs & Microservices | GraphQL | 20.0% | 0.0% | 20.0% |
-| APIs & Microservices | REST | 10.0% | 0.0% | 10.0% |
 | APIs & Microservices | gRPC | 0.0% | 0.0% | 0.0% |
 | APIs & Microservices | OpenAPI | 0.0% | 0.0% | 0.0% |
 | APIs & Microservices | Swagger | 0.0% | 0.0% | 0.0% |
-| Cloud & DevOps | AWS | 40.0% | 0.0% | 40.0% |
+| Cloud & DevOps | AWS | 50.0% | 0.0% | 50.0% |
 | Cloud & DevOps | Kubernetes | 40.0% | 0.0% | 40.0% |
 | Cloud & DevOps | Azure | 30.0% | 0.0% | 30.0% |
-| Cloud & DevOps | CI/CD | 20.0% | 0.0% | 20.0% |
+| Cloud & DevOps | CI/CD | 30.0% | 0.0% | 30.0% |
 | Cloud & DevOps | Docker | 10.0% | 0.0% | 10.0% |
 | Cloud & DevOps | GCP | 0.0% | 0.0% | 0.0% |
 | Cloud & DevOps | Terraform | 0.0% | 0.0% | 0.0% |
@@ -93,11 +93,11 @@ Great job! These in-demand skills are already well-covered in your curriculum:
 | Tools & R Ecosystem | R | 0.0% | 0.0% | 0.0% |
 | Tools & R Ecosystem | Positron | 0.0% | 0.0% | 0.0% |
 | Tools & R Ecosystem | Posit | 0.0% | 0.0% | 0.0% |
-| Version Control | GitHub | 20.0% | 0.0% | 20.0% |
-| Version Control | Git | 10.0% | 0.0% | 10.0% |
+| Version Control | GitHub | 30.0% | 0.0% | 30.0% |
+| Version Control | Git | 20.0% | 0.0% | 20.0% |
 | Version Control | GitLab | 0.0% | 0.0% | 0.0% |
 | Version Control | Bitbucket | 0.0% | 0.0% | 0.0% |
-| Web Frameworks | FastAPI | 40.0% | 0.0% | 40.0% |
+| Web Frameworks | FastAPI | 50.0% | 0.0% | 50.0% |
 | Web Frameworks | Flask | 30.0% | 0.0% | 30.0% |
 | Web Frameworks | Django | 20.0% | 0.0% | 20.0% |
 | Web Frameworks | Tornado | 0.0% | 0.0% | 0.0% |

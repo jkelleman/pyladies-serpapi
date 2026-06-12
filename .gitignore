@@ -1,0 +1,5 @@
+venv/
+.env
+.ruff_cache/
+.pyladies_chapters.json
+debug_boston.py

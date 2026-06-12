@@ -64,7 +64,13 @@ pyladies-serpapi/
    ```bash
    pip install -r requirements.txt
    ```
+
+   **Using uv package manager:**
+   ```bash
+   uv pip install -r requirements.txt
+   ```
    *(Note: Check out the official [SerpApi Python SDK Repository](https://github.com) for more details on setup).*
+
 
 4. **Environment Variables:**
    Create a `.env` file in the root directory and add your SerpApi token:
