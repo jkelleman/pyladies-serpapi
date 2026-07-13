@@ -21,3 +21,25 @@ Many data scientists and analysts start their work in standalone Jupyter Noteboo
 ## 🔗 Connection to Portfolio Repositories
 - [semantic-metrics-modeling-assistant](https://github.com/jkelleman/semantic-metrics-modeling-assistant)
 - [rental-bike-sharing](https://github.com/jkelleman/rental-bike-sharing)
+
+---
+
+## 🛠️ Attendee Pre-requisites & Setup Guide
+- **Python 3.10+** and **Git** installed on your system.
+- Basic knowledge of SQL (SELECT statements, JOINs, and aggregates).
+- (Optional) Install `dbt-core` and `dbt-duckdb`: `pip install dbt-core dbt-duckdb`
+- Recommended tool: **VS Code** with the Power User dbt extension.
+
+## 📢 Promotion & Marketing Copy
+**Meetup Description:**
+Tired of Jupyter Notebook chaos and fragile data pipelines? Join us for an introduction to **Analytics Engineering**! Learn how modern data teams bring software engineering best practices—like Git version control, modular modeling, automated testing, and semantic layers—directly into SQL and Python analyses.
+
+**Hashtags:**
+#PyLadies #Python #AnalyticsEngineering #dbt #SQL #DataScience #DataQuality
+
+## 💬 Interactive Audience Engagement Plan
+- **Icebreaker Poll:** "Where does most of your data analysis live? (Jupyter Notebooks / Local CSVs / Cloud Data Warehouse / Excel)"
+- **Interactive Checkpoint:** Show a raw, unorganized SQL query and challenge the audience to identify how they would refactor it into clean, modular, and testable dbt models.
+
+## 💻 Interactive Code Sandbox Link
+- **Status:** Under development (see preparation roadmap in [README.md](./README.md)). Once configured, you can run dbt models locally in your browser by launching a pre-configured dbt sandbox via [GitHub Codespaces](https://github.com/features/codespaces) on the [semantic-metrics-modeling-assistant](https://github.com/jkelleman/semantic-metrics-modeling-assistant) repository.

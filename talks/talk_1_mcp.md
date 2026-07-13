@@ -22,3 +22,26 @@ The Model Context Protocol (MCP) is an open-source standard that enables develop
 ## 🔗 Connection to Portfolio Repositories
 - [semantic-metrics-modeling-assistant](https://github.com/jkelleman/semantic-metrics-modeling-assistant)
 - [ai-assisted-insights-agent](https://github.com/jkelleman/ai-assisted-insights-agent)
+
+---
+
+## 🛠️ Attendee Pre-requisites & Setup Guide
+- **Python 3.10+** installed on your system.
+- Basic familiarity with Python and decorators.
+- An API Key from **Anthropic** or **OpenAI** (optional, but recommended for testing with Claude Desktop).
+- Install `uv` (recommended fast package manager): `pip install uv` or via standalone installer.
+- Recommended text editor: **VS Code** with the Python extension.
+
+## 📢 Promotion & Marketing Copy
+**Meetup Description:**
+Ready to give your AI assistants superpowers? Join us this Friday at noon for a hands-on exploration of the **Model Context Protocol (MCP)** and **FastMCP**! We'll show you how to securely connect local data sources, APIs, and tools to LLMs in just a few lines of Python.
+
+**Hashtags:**
+#PyLadies #Python #ModelContextProtocol #FastMCP #AIAssistants #OpenSource
+
+## 💬 Interactive Audience Engagement Plan
+- **Icebreaker Poll:** "How many of you have built custom tools or APIs for LLMs before? (None / Some / I do this daily!)"
+- **Interactive Checkpoint:** Pause after declaring the first tool to ask the audience: "What real-world database or API in your daily work would you want to wrap in an MCP server next?"
+
+## 💻 Interactive Code Sandbox Link
+- **Status:** Under development (see preparation roadmap in [README.md](./README.md)). Once configured, you can launch a pre-configured development container with FastMCP pre-installed using [GitHub Codespaces](https://github.com/features/codespaces) on the companion repository [semantic-metrics-modeling-assistant](https://github.com/jkelleman/semantic-metrics-modeling-assistant).

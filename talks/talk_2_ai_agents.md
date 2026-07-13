@@ -22,3 +22,26 @@ Move beyond simple prompt engineering! This talk takes you behind the scenes of 
 - [ai-content-orchestrator](https://github.com/jkelleman/ai-content-orchestrator)
 - [wedding-planning-agent](https://github.com/jkelleman/wedding-planning-agent)
 - [price-is-right-agent](https://github.com/jkelleman/price-is-right-agent)
+
+---
+
+## 🛠️ Attendee Pre-requisites & Setup Guide
+- **Python 3.10+** installed on your system.
+- Understanding of async Python and REST API basics (FastAPI/requests).
+- An API Key from **OpenAI** or **Anthropic**.
+- Install requirements: `pip install openai fastapi pydantic`
+- Recommended tool: **Postman** or **curl** to test local endpoints.
+
+## 📢 Promotion & Marketing Copy
+**Meetup Description:**
+Move beyond simple prompt engineering! This Friday at noon, we're going behind the scenes of **Autonomous AI Agents** in Python. Learn how to decompose daily workflows—like price tracking or personal planning—into structured database models and self-correcting agent loops (using the ReAct pattern).
+
+**Hashtags:**
+#PyLadies #Python #AIAgents #AgenticWorkflows #FastAPI #Automation #ReActPattern
+
+## 💬 Interactive Audience Engagement Plan
+- **Icebreaker Poll:** "What is the most tedious, repetitive task you do every day that you wish an AI agent could do for you?"
+- **Interactive Checkpoint:** Present a scenario where an agent gets stuck in a loop (e.g., an API is down) and ask: "How should the agent handle this failure? Retry, fail gracefully, or ask for human-in-the-loop help?"
+
+## 💻 Interactive Code Sandbox Link
+- **Status:** Under development (see preparation roadmap in [README.md](./README.md)). Once configured, you can try out the agent loops with zero local setup using [GitHub Codespaces](https://github.com/features/codespaces) on the [ai-content-orchestrator](https://github.com/jkelleman/ai-content-orchestrator) repository.
