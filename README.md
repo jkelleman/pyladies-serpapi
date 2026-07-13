@@ -1,34 +1,32 @@
-# PyLadies Skill Gap Analyzer 📊🔍
+# PyLadies Skill Gap Analyzer
 
-An automated data pipeline designed to analyze educational trends and identify "skill gaps" across local **PyLadies** chapters. By leveraging structured search data, this tool maps out existing chapter locations, extracts technologies taught in past events, and compares them with current developer community needs.
+An automated data pipeline for analyzing educational trends and identifying skill gaps across local **PyLadies** chapters. The pipeline maps chapter locations, extracts technologies taught at past events, and benchmarks them against current developer market demand.
 
-This project was built using **[SerpApi](https://serpapi.com)** to solve anti-bot scraping restrictions and access structured social profile data seamlessly.
-
----
-
-## 🛠️ Powered by SerpApi
-
-Instead of writing fragile and easily-blocked HTML scrapers for platform discovery, this application utilizes specialized engines provided by SerpApi to extract clean, reliable data:
-
-1. **Google Search API (`site:` operator):** Used to dynamically discover PyLadies chapters listed on Meetup without triggers from Cloudflare protections. Read the [SerpApi Google Search API Documentation](https://serpapi.com).
-2. **Instagram Profile API (`engine: instagram_profile`):** Used to securely pull biography descriptions and profile details from public local chapter accounts. Read the [SerpApi Instagram Profile API Documentation](https://serpapi.com).
-
-This workflow perfectly demonstrates how **structured search results are vastly superior and easier to maintain than scraping raw HTML**.
+Built on **[SerpApi](https://serpapi.com)** to bypass anti-bot restrictions and access structured social profile data without brittle HTML scraping.
 
 ---
 
-## 🚀 Features
+## Powered by SerpApi
 
-- **Automated Chapter Discovery:** Leverages Google's indexed database via SerpApi to discover valid chapter URLs.
-- **Social Media Insight Extraction:** Inspects local chapters' public Instagram accounts using the specialized SerpApi social engine.
-- **Skill Taxonomy Matching:** Cross-references extracted textual data against a predefined Python ecosystem taxonomy (e.g., Django, FastAPI, Data Science, Pandas).
-- **Visual Analytics:** Automatically generates comparative bar charts and exports data into clean Markdown reporting files.
+Rather than maintaining fragile scrapers that break on Cloudflare challenges or DOM changes, this project routes all data extraction through SerpApi's purpose-built engines:
+
+1. **Google Search API (`site:` operator):** Discovers PyLadies chapters indexed on Meetup without triggering bot-detection layers. See the [SerpApi Google Search API Documentation](https://serpapi.com).
+2. **Instagram Profile API (`engine: instagram_profile`):** Pulls biography text and profile metadata from public chapter accounts. See the [SerpApi Instagram Profile API Documentation](https://serpapi.com).
+
+Structured search results are more reliable, more maintainable, and significantly less brittle than scraping raw HTML.
 
 ---
 
-## 📂 Project Structure
+## Features
 
-The project follows a clean, modular python architecture separated by business logic constraints:
+- **Automated Chapter Discovery:** Uses Google's indexed database via SerpApi to enumerate valid chapter URLs at scale.
+- **Social Profile Extraction:** Pulls public Instagram account data for local chapters using SerpApi's social engine.
+- **Skill Taxonomy Matching:** Cross-references extracted text against a predefined Python ecosystem taxonomy covering frameworks, tools, and domains (e.g., Django, FastAPI, Data Science, Pandas).
+- **Visual Analytics:** Generates comparative bar charts and exports structured Markdown reports for each pipeline run.
+
+---
+
+## Project Structure
 
 ```text
 pyladies-serpapi/
@@ -45,7 +43,7 @@ pyladies-serpapi/
 
 ---
 
-## 💻 Installation & Setup
+## Installation & Setup
 
 1. **Clone the repository:**
    ```bash
@@ -53,77 +51,76 @@ pyladies-serpapi/
    cd pyladies-serpapi
    ```
 
-2. **Set up a Python Virtual Environment:**
+2. **Set up a virtual environment:**
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    ```
 
-3. **Install Dependencies:**
-   This project communicates with SerpApi through the official integration client.
+3. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-   **Using uv package manager:**
+   Or with `uv`:
    ```bash
    uv pip install -r requirements.txt
    ```
-   *(Note: Check out the official [SerpApi Python SDK Repository](https://github.com) for more details on setup).*
+   See the [SerpApi Python SDK Repository](https://github.com) for additional setup details.
 
-
-4. **Environment Variables:**
-   Create a `.env` file in the root directory and add your SerpApi token:
+4. **Configure environment variables:**
+   Create a `.env` file at the project root and add your SerpApi key:
    ```env
    SERPAPI_KEY="your_secret_serpapi_api_key_here"
    ```
 
 ---
 
-## 🎯 Usage
+## Usage
 
-Run the orchestrator script using the command-line interface with the proper hyphenation flags (`--`).
+The pipeline is driven through a CLI with `--`-prefixed flags.
 
 ### Basic Analysis
-Analyze events hosted within the last few months:
+Analyze events from the last N months:
 ```bash
 python main.py --history-months 6
 ```
 
-### Investigate a Specific Instagram Chapter
-Pull biography profile insights using SerpApi's specialized social engine:
+### Instagram Profile Lookup
+Extract biography and profile data for a specific chapter account:
 ```bash
 python main.py --instagram-user pyladiesbr
 ```
 
-### Full Dump Configuration
-Discover and rebuild the local chapters index mapping database:
+### Chapter Index Rebuild
+Discover and rebuild the full chapter index:
 ```bash
 python main.py --dump-chapters
 ```
 
 ---
 
-## 📈 Outputs
-All generated execution reports, data tables, and Matplotlib data visualization png figures are saved directly into the dynamically created `outputs/` folder.
+## Outputs
+
+All reports, data tables, and Matplotlib visualizations are written to the `outputs/` directory, created automatically on first run.
 
 ---
 
-## 📈 Featured Case Study: PyLadies Boston 🇺🇸
+## Case Study: PyLadies Boston
 
-The **PyLadies Boston** chapter serves as our primary benchmark because it is one of the most active hubs in the global community. By analyzing their timeline, our pipeline successfully captured advanced, modern tech trends that standard tools miss.
+The **PyLadies Boston** chapter is used as the primary benchmark — it is one of the most active chapters globally and produces a consistent event signal for the pipeline to analyze.
 
-### 📊 Real-Time Skill Alignment Visual
-When running the pipeline, a dual-variable visualization chart is generated automatically inside the `outputs/` directory.
+### Skill Alignment Chart
+
+Running the pipeline generates a dual-variable bar chart in `outputs/`:
 
 ![PyLadies Boston Skill Gap Analysis](outputs/boston_gap_chart.png)
 
-### 🔍 Key Insights & Analysis
-Our taxonomy matching layer discovered highly relevant data points during the Boston analysis execution:
+### Analysis
 
-- **The Curriculum Pink Bars:** The pipeline successfully parsed 8 recent events from the chapter's RSS feed, capturing traditional fundamentals (`Python`) alongside bleeding-edge ecosystem topics like **"Agentic Coding"** (AI Agents) and **"Positron"** (the new Next-Generation IDE for Data Science by Posit).
-- **The Market Demand Blue Bars:** By querying the live **SerpApi Google Jobs API** for *"Python developer jobs in Boston"*, the tool dynamically fetched active job descriptions to measure how frequently those exact technologies are requested by local employers.
+- **Curriculum (pink bars):** The pipeline parsed 8 recent events from the chapter's RSS feed, surfacing both foundational topics (`Python`) and forward-looking curriculum like **"Agentic Coding"** (AI agent workflows) and **"Positron"** (the next-generation Data Science IDE from Posit).
+- **Market Demand (blue bars):** The pipeline queries SerpApi's Google Jobs API for active *"Python developer"* postings in Boston, then measures how frequently each taxonomy term appears in those job descriptions.
 
-This benchmark perfectly demonstrates the core value of the tool: identifying exactly when a local community's curriculum matches or anticipates real job market demands!
+The gap between these two distributions is the signal — it shows where a chapter's curriculum is aligned with, ahead of, or trailing local employer demand.
 
 ---
